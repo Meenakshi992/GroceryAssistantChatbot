@@ -1,0 +1,9 @@
+.streamlit/secrets.toml
+
+# Local Persistent Vector Database
+chroma_rag_db/
+*.sqlite3
+
+# Python Virtual Environments & Cache
+.venv/
+__pycache__/
