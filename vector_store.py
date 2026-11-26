@@ -80,25 +80,22 @@ def chunk_text(text, chunk_size, overlap):
 
 def index_uploaded_file(client, collection, uploaded_file, chunk_size, overlap, cleaning_options):
     """Extracts, chunks, embeds, and saves an uploaded file into ChromaDB with store metadata."""
-    records = clean_extract_uploaded_file(uploaded_file, cleaning_options)
-    if len(records) == 0:
-        return {"chunks_added": 0, "extracted_text": ""}
-
-    first_record = records[0]
-    first_text = first_record["text"]
-    store_tag = detect_store_name(uploaded_file.name, first_text)
     all_docs = []
     all_metas = []
     all_ids = []
     all_embeddings = []
-    extracted_pages = []
-
     clean_name = uploaded_file.name.replace(".", "_").replace(" ", "_")
+    records = clean_extract_uploaded_file(uploaded_file, cleaning_options)
+    if len(records) == 0:
+        return {"chunks_added": len(all_ids)}
+
+    first_record = records[0]
+    first_text = first_record["text"]
+    store_tag = detect_store_name(uploaded_file.name, first_text)
 
     for rec in records:
         page_num = rec["page"]
         header_line = rec["text"].split("\n")[0][:100]
-        extracted_pages.append(rec["text"])
 
         pieces = chunk_text(rec["text"], chunk_size, overlap)
 
@@ -126,6 +123,5 @@ def index_uploaded_file(client, collection, uploaded_file, chunk_size, overlap, 
         )
 
     return {
-        "chunks_added": len(all_ids),
-        "extracted_text": "\n\n".join(extracted_pages),
+        "chunks_added": len(all_ids)
     }

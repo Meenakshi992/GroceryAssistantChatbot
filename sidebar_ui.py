@@ -9,8 +9,6 @@ def render_sidebar(client, collection, refresh_callback):
         if st.session_state["knowledge_base"]:
             st.success(f"Loaded {len(st.session_state['total_documents'])} saved files from ChromaDB.")
 
-        st.markdown("Need a Surrey flyer? Check **[Flipp.com](https://flipp.com)** and upload the PDF or screenshot below.")
-
         uploaded_files = st.file_uploader(
             "Select PDF, TXT, MD files",
             type=["pdf", "txt", "md"],
@@ -33,7 +31,7 @@ def render_sidebar(client, collection, refresh_callback):
         with st.expander("Chunking & Search Settings", expanded=False):
             chunk_size = st.slider("Chunk Size", 300, 1200, 700, step=100)
             overlap = st.slider("Chunk Overlap", 0, 300, 120, step=30)
-            top_k = st.slider("Top-K Chunks", 1, 5, 4)
+            top_k = st.slider("Top-K Chunks", 2, 5, 4)
             threshold = st.slider("Similarity Cutoff", 0.10, 0.80, 0.35, step=0.05)
 
         # getting total sum of files - saved in Chroma DB and newly uploaded ones
@@ -57,12 +55,10 @@ def render_sidebar(client, collection, refresh_callback):
                     try:
                         with st.spinner(f"Processing {file_obj.name}..."):
                             res = index_uploaded_file(client, collection, file_obj, chunk_size, overlap, cleaning_options)
-                        if res["chunks_added"] == 0:
-                            st.error(f"Skipped '{file_obj.name}': No readable item titles or prices found.")
-                        else:
-                            total_added += res["chunks_added"]
-                            txt_name = file_obj.name.rsplit(".", 1).pop(0) + "_extracted.txt"
-                            st.session_state["extracted_files"][txt_name] = res["extracted_text"]
+                            if res["chunks_added"] == 0:
+                                st.error(f"Skipped '{file_obj.name}': No readable item titles or prices found.")
+                            else:
+                                total_added += res["chunks_added"]
                     except Exception as err:
                         st.error(f"Error reading {file_obj.name}: {err}")
 
@@ -71,23 +67,12 @@ def render_sidebar(client, collection, refresh_callback):
                     st.success(f"Saved {total_added} chunks!")
                     st.rerun()
 
-        if len(st.session_state["extracted_files"]) > 0:
-            with st.expander("Download Extracted Flyer Text (.txt)", expanded=True):
-                for txt_name, txt_body in st.session_state["extracted_files"].items():
-                    st.download_button(
-                        label=f"Download {txt_name}",
-                        data=txt_body,
-                        file_name=txt_name,
-                        mime="text/plain",
-                        use_container_width=True,
-                    )
-
         st.divider()
         st.subheader("2. Nearby Surrey Stores")
-        pincode = st.text_input("Surrey Postal Code", value="V3T 2W1")
-        st.warning("e.g., V3R 0A4 vs. V3T 2W1 vs. V3W 2W8")
+        pincode = st.text_input("Surrey Postal Code", value="V3R 0A4")
+        st.warning("e.g. V3T 2W1, V3R 0A4, V3W 2W8, or V4A 1S1")
         max_radius = st.slider("Radius (km)", 1.0, 20.0, 6.0, step=0.5)
-        st.info("Active Flyer Week: Nov 26 – Dec 3, 2026 (Verify printed dates on each flyer).")
+        st.info("Active Flyer Week: Nov 26 – Dec 2, 2026 (Verify printed dates on each flyer).")
         st.warning("Default Stores listed under 6 KMs, you can change to 8.0 or upto 20.0 km-")
 
         st.divider()
@@ -105,7 +90,6 @@ def render_sidebar(client, collection, refresh_callback):
                     collection.delete(ids=all_ids)
                 st.session_state["messages"] = []
                 st.session_state["embedding_cache"] = {}
-                st.session_state["extracted_files"] = {}
                 refresh_callback()
                 st.rerun()
 

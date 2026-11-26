@@ -41,29 +41,23 @@ def retrieve_and_answer(client, collection, question, top_k=5, threshold=0.35, a
     query_vec = get_cached_embedding(client, question, DEFAULT_EMBEDDING_MODEL)
     num_results = min(top_k, collection.count())
 
-     # Check if the user is asking about store rules/policies or just product prices
-    policy_keywords = ["policy", "match", "raincheck", "return", "guarantee", "rule", "coupon", "point", "optimum",
-                           "exclude"]
-    is_policy_question = any(word in question.lower() for word in policy_keywords)
-
     where_filter = None
+
     if allowed_stores is not None:
         valid_tags = list(allowed_stores) + ["Policy"]
-        if is_policy_question:
-            valid_tags.append("Policy")
         where_filter = {"store": {"$in": valid_tags}}
 
-        results = collection.query(
-            query_embeddings=[query_vec],
-            n_results=num_results,
-            where=where_filter,
-            include=["documents", "metadatas", "distances"],
-        )
+    results = collection.query(
+        query_embeddings=[query_vec],
+        n_results=num_results,
+        where=where_filter,
+        include=["documents", "metadatas", "distances"],
+    )
     retrieval_ms = round((time.time() - start_time) * 1000, 1)
-
     docs = results["documents"][0] if results["documents"] else []
     metas = results["metadatas"][0] if results["metadatas"] else []
     dists = results["distances"][0] if results["distances"] else []
+
     sources = []
     accepted = []
 
@@ -110,25 +104,12 @@ def retrieve_and_answer(client, collection, question, top_k=5, threshold=0.35, a
         page_str = f", p. {chunk['page']}" if chunk["page"] is not None else ""
         context_text += f"[Source: {chunk['source']}{page_str}]\n{chunk['text']}\n\n"
 
-    # system_prompt = (
-    #     "You are grocery-products-assistant. Answer the user's question using ONLY the provided context. "
-    #     "STRICT ANTI-HALLUCINATION RULES:\n"
-    #     "1. Never guess, estimate, or assume a single sale price if the text only shows a regular price range (e.g. 'reg 3.69-3.79') or if the sale price is unclear/missing.\n"
-    #     "2. If an item's exact sale price is unclear or only a regular price range is listed, explicitly state that the exact sale price is not clearly listed in the flyer and quote the exact text.\n"
-    #     "3. Include EVERY product with a confirmed exact price from the context in both your summary and the 'prices' list, highlighting the cheapest store, exact price gap, and flyer prices are valid dates (Active Week: Nov 25 – Dec 3, 2026).\n"
-    #     "4. Only include an item in the 'prices' chart list if it has a single, unambiguous exact price in the context (never include ranges like '3.69-3.79').\n"
-    #     "5. Always include inline citations like [Source: filename, p. 1] after your facts.\n"
-    #     "Return a valid JSON object with two keys:\n"
-    #     '1. "answer": your concise cited text summary.\n'
-    #     '2. "prices": a list of objects {"item": "Short Item Name", "store": "Store Name", "price": 5.39} '
-    #     "for EVERY SINGLE product with a confirmed exact price across ALL retrieved chunks (do not stop after one item; empty list only if none exist)."
-    # )
     system_prompt = (
         "You are grocery-products-assistant. Answer the user's question using ONLY the provided context. "
         "STRICT ANTI-HALLUCINATION RULES:\n"
         "1. Never guess, estimate, or assume a single sale price if the text only shows a regular price range (e.g. 'reg 3.69-3.79') or if the sale price is unclear/missing.\n"
         "2. If an item's exact sale price is unclear or only a regular price range is listed, explicitly state that the exact sale price is not clearly listed in the flyer and quote the exact text.\n"
-        "3. Only include an item in the 'prices' chart list if it has a single, unambiguous exact price in the context (never include ranges like '3.69-3.79').\n"
+        "Format your 'answer' so that each store's information is on its own separate line (separated by a blank line) as a clear, standalone sentence, with every price wrapped in bold markdown (for example: **$5.39**). Include the cheapest store, exact price gap, and flyer valid dates.\n"
         "4. Always include inline citations like [Source: filename, p. 1] after your facts.\n"
         "Return a valid JSON object with two keys:\n"
         '1. "answer": your concise cited text summary.\n'
@@ -145,10 +126,12 @@ def retrieve_and_answer(client, collection, question, top_k=5, threshold=0.35, a
             {"role": "user", "content": f"Context:\n{context_text}\nQuestion: {question}"},
         ],
     )
+    first_choice = response.choices.pop(0)
+    raw_json = first_choice.message.content or "{}"
 
-    raw_json = response.choices.pop(0).message.content or "{}"
     parsed = json.loads(raw_json)
     answer = parsed.get("answer", DEFAULT_FALLBACK1)
+    answer = answer.replace("$", r"\$")
     chart_data = parsed.get("prices",)
 
     total_ms = round((time.time() - start_time) * 1000, 1)

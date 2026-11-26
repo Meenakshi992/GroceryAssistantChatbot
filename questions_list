@@ -1,20 +1,9 @@
-## 10-Question Test Log
+## 3-Question
 
-Tested using 4 grocery PDF documents (`no_frills_weekly_flyer.pdf`, `walmart_guildford_flyer.pdf`, `superstore_next_week_flyer.pdf`, `price_match_and_raincheck_policy.pdf`) with **Top-K = 6** and **Similarity Threshold = 0.35**.
-
-| # | Question Type | Test Question | Retrieved Right Chunks? | Accurate Answer? | Correct Citation? | Rejected Irrelevant Question? | Result / Notes |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-1 Direct | what is the price of apples, banana, bread, chicken and milk in all nearby stores
-2 Direct | What is the price of Tilda Pure Basmati Rice (4.5 kg) at Walmart Guildford?
-3 Direct | When do next week's Real Canadian Superstore flyer prices start and end?
-4 Paraphrased | How long do I have to use a raincheck before it expires, and where can I use it?
-5 Paraphrased | What do I need to show at the register to get a competitor's lower advertised price?
-6 Misspelled | How much is whole wheet bred and chedar chese at Superstor next week?
-7 Multi-Document | Compare the price of Lean Ground Beef and Fresh Cavendish Bananas across No Frills, Walmart, and Superstore.
-8 Multi-Document | If No Frills has Dempster's Whole Wheat Bread (675g) for $2.97 this week and Superstore has it for $3.29, can Superstore price match it?
-9 Irrelevant | What are the best tourist attractions to visit in Paris, France?
-10 Irrelevant | How do I bake a chocolate lava cake from scratch at 400 degrees?
-
-check cache=>
-what is the price of eggs in all nearby store
-which has least price of eggs among above stores
+Question 1 "Compare the prices of Dairyland 2% Milk, Large White Eggs, and Bananas across my nearby stores."
+Question 2 "How long do I have to use a raincheck before it expires, and can Walmart at Central City Mall price match No Frills?"
+Question 3 "What are the SkyTrain Expo Line operating hours from Surrey Central to Waterfront?"
+Question 4 "Compare the price of Fresh Cavendish Bananas across my nearby stores."
+Question 5 "Compare the price of Large White Eggs across all nearby stores"
+check cache=> ASK 4 times
+Tell me which store has the cheapest of eggs among above stores

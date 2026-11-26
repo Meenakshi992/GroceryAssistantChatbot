@@ -54,8 +54,6 @@ if "chunk_count" not in st.session_state:
     st.session_state["chunk_count"] = 0
 if "embedding_cache" not in st.session_state:
     st.session_state["embedding_cache"] = {}
-if "extracted_files" not in st.session_state:
-    st.session_state["extracted_files"] = {}
 
 # Load OpenAI API key securely
 if "OPENAI_API_KEY" not in st.secrets:
@@ -178,11 +176,15 @@ def show_sources(sources, question=""):
                 st.markdown(highlighted_text, unsafe_allow_html=True)
 
 # Nearby Surrey Stores Panel
-address, nearby_df = get_nearby_stores(cfg["pincode"], cfg["max_radius"])
-stores_in_radius = nearby_df["Store"].tolist() if not nearby_df.empty else []
+address, nearby_df, is_valid_pin = get_nearby_stores(cfg["pincode"], cfg["max_radius"])
+stores_in_radius = nearby_df["Store"].tolist() if (is_valid_pin and not nearby_df.empty) \
+    else  st.error("Sorry, this pincode not from Surrey,BC.")
 
 with st.expander("Nearby Surrey Stores & Local Flyer Suggestions", expanded=True):
-    st.caption(f"Location: {address} | Search restricted to flyers within {cfg['max_radius']} km")
+    if not is_valid_pin:
+        st.error(address)
+    else:
+        st.caption(f"Location: {address} | Search restricted to flyers within {cfg['max_radius']} km")
     if nearby_df.empty:
         st.info("No partner stores found within this radius. Increase the Radius slider in the sidebar.")
     else:
