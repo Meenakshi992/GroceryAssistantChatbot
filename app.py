@@ -1,22 +1,14 @@
-from __future__ import annotations
-
-import pandas as pd
 import streamlit as st
 from openai import OpenAI
-
+import matplotlib.pyplot as plt
+import re
+import pandas as pd
 from chat_engine import retrieve_and_answer
-from vector_store import COLLECTION_NAME, get_collection, index_uploaded_file
+from sidebar_ui import render_sidebar
+from store_locator import get_nearby_stores
+from vector_store import COLLECTION_NAME, get_collection
 
-
-# ============================================================
-# PAGE CONFIGURATION & ORIGINAL THEME STYLING
-# ============================================================
-
-st.set_page_config(
-    page_title="grocery-products-assistant",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+st.set_page_config(page_title="grocery-products-assistant", layout="wide")
 
 st.markdown(
     """
@@ -43,252 +35,233 @@ st.markdown(
             opacity: 0.85;
         }
     </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-# ============================================================
-# SESSION STATE SETUP
-# ============================================================
-
-DEFAULT_STATE = {
-    "messages": [],
-    "knowledge_ready": False,
-    "collection_name": COLLECTION_NAME,
-    "document_manifest": [],
-    "chunk_count": 0,
-    "last_sources": [],
-    "last_metrics": {},
-    "last_question": "",
-    "embedding_cache": {},
-}
-
-for key, default_val in DEFAULT_STATE.items():
-    if key not in st.session_state:
-        st.session_state[key] = default_val
-
-
-# ============================================================
-# OPENAI & CHROMADB INITIALIZATION
-# ============================================================
-
-def load_openai_key() -> str | None:
-    try:
-        return st.secrets.get("OPENAI_API_KEY")
-    except Exception:
-        return None
-
-
-@st.cache_resource
-def init_openai(key: str) -> OpenAI:
-    return OpenAI(api_key=key)
-
-
-api_key = load_openai_key()
-if not api_key:
-    st.error("API key not found. Please set OPENAI_API_KEY inside .streamlit/secrets.toml and reload.")
-    st.stop()
-
-client = init_openai(api_key)
-
-try:
-    collection = get_collection(COLLECTION_NAME)
-except Exception as exc:
-    st.error(f"Could not connect to ChromaDB storage: {exc}")
-    st.stop()
-
-
-def refresh_manifest():
-    records = collection.get(include=["metadatas"])
-    metas = records.get("metadatas") or []
-    doc_counts: dict[str, int] = {}
-
-    for meta in metas:
-        if isinstance(meta, dict):
-            doc_name = meta.get("source", "Unknown")
-            doc_counts[doc_name] = doc_counts.get(doc_name, 0) + 1
-
-    st.session_state["document_manifest"] = [
-        {"File Name": name, "Chunks": count} for name, count in sorted(doc_counts.items())
-    ]
-    st.session_state["chunk_count"] = collection.count()
-    st.session_state["knowledge_ready"] = len(doc_counts) >= 4
-
-
-refresh_manifest()
-
-
-# ============================================================
-# TOP HEADER BANNER
-# ============================================================
-
-st.markdown(
-    """
     <div class="app-banner">
         <h1>grocery-products-assistant</h1>
-        <p>
-            Grounded Grocery Flyer & Store Policy Assistant — Upload at least 4 documents to build your
-            searchable knowledge base and get cited answers backed by retrieved evidence.
-        </p>
+        <p>Surrey, BC Grounded Grocery Flyer & Store Policy Assistant — Upload at least 4 documents and get cited answers backed strictly by your uploaded files.</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
+# Initialize session state
+if "messages" not in st.session_state:
+    st.session_state["messages"] = []
+if "knowledge_base" not in st.session_state:
+    st.session_state["knowledge_base"] = False
+if "total_documents" not in st.session_state:
+    st.session_state["total_documents"] = []
+if "chunk_count" not in st.session_state:
+    st.session_state["chunk_count"] = 0
+if "embedding_cache" not in st.session_state:
+    st.session_state["embedding_cache"] = {}
+if "extracted_files" not in st.session_state:
+    st.session_state["extracted_files"] = {}
 
-# ============================================================
-# SIDEBAR: INGESTION, CLEANING & RETRIEVAL CONTROLS
-# ============================================================
-
-with st.sidebar:
-    st.subheader("Step 1: Upload Grocery Files")
-    st.caption("Minimum 4 documents required (PDF, TXT, MD, or DOCX).")
-
-    uploaded_files = st.file_uploader(
-        "Choose files to index",
-        type=["pdf", "txt", "md", "docx"],
-        accept_multiple_files=True,
-    )
-
-    with st.expander("Text Preprocessing Options", expanded=True):
-        cleaning_options = {
-            "fix_hyphens": st.checkbox("Fix broken hyphenated words", value=True),
-            "remove_page_nums": st.checkbox("Strip standalone page numbers", value=True),
-            "fix_lines": st.checkbox("Merge broken lines in paragraphs", value=True),
-            "clean_spaces": st.checkbox("Collapse extra spaces & blank lines", value=True),
-        }
-
-    with st.expander("Chunking & Retrieval Tuning", expanded=False):
-        chunk_size = st.slider("Chunk Size (chars)", 300, 1200, 700, step=100)
-        overlap = st.slider("Chunk Overlap (chars)", 0, 300, 120, step=30)
-        top_k = st.slider("Top-K Chunks Retrieved", 1, 8, 4)
-        threshold = st.slider("Similarity Cutoff", 0.10, 0.80, 0.35, step=0.05)
-
-    existing_docs = {row["File Name"] for row in st.session_state["document_manifest"]}
-    selected_docs = {f.name for f in uploaded_files} if uploaded_files else set()
-    combined_count = len(existing_docs | selected_docs)
-
-    if uploaded_files:
-        if combined_count < 4:
-            st.warning(f"Select at least 4 unique files ({combined_count}/4 ready).")
-        else:
-            if st.button("Index Uploaded Documents", type="primary", use_container_width=True):
-                total_added = 0
-                for file_item in uploaded_files:
-                    try:
-                        with st.spinner(f"Reading and embedding {file_item.name}..."):
-                            total_added += index_uploaded_file(
-                                client=client,
-                                collection=collection,
-                                uploaded_file=file_item,
-                                chunk_size=chunk_size,
-                                overlap=overlap,
-                                cleaning_options=cleaning_options,
-                            )
-                    except Exception as err:
-                        st.error(f"Could not process {file_item.name}: {err}")
-
-                refresh_manifest()
-                if total_added > 0:
-                    st.success(f"Indexed {total_added} chunks into ChromaDB.")
-                    st.rerun()
-
-    st.divider()
-    st.subheader("Knowledge Base Summary")
-    col_docs, col_chunks, col_cache = st.columns(3)
-    col_docs.metric("Files", len(st.session_state["document_manifest"]))
-    col_chunks.metric("Chunks", st.session_state["chunk_count"])
-    # When you ask a new question, Cached Vectors increases by 1
-    # (the new query vector)—and if you ask that same question again
-    # or adjust Top-K, Cached Vectors stays the same, proving no duplicate
-    # OpenAI embedding calls were made.
-    col_cache.metric("Cached Vectors", len(st.session_state["embedding_cache"]))
-
-    if st.session_state["document_manifest"]:
-        st.dataframe(
-            pd.DataFrame(st.session_state["document_manifest"]),
-            use_container_width=True,
-            hide_index=True,
-        )
-        if st.button("Reset Database", use_container_width=True):
-            ids_to_delete = collection.get().get("ids") or []
-            if ids_to_delete:
-                collection.delete(ids=ids_to_delete)
-            st.session_state["messages"] = []
-            st.session_state["last_sources"] = []
-            st.session_state["embedding_cache"] = {}
-            refresh_manifest()
-            st.rerun()
+# Load OpenAI API key securely
+if "OPENAI_API_KEY" not in st.secrets:
+    st.error("Missing OPENAI_API_KEY in .streamlit/secrets.toml")
+    st.stop()
 
 
+@st.cache_resource
+def init_openai(key):
+    return OpenAI(api_key=key)
 
-# ============================================================
-# MAIN CHAT AREA & SOURCE VIEWER
-# ============================================================
 
-def display_source_drawer(sources: list[dict]):
-    if not sources:
+client = init_openai(st.secrets["OPENAI_API_KEY"])
+collection = get_collection(COLLECTION_NAME)
+
+# checking how many files are in our chroma db using src metadata count calling it
+def refresh_documents_count():
+    metas = collection.get(include=["metadatas"]).get("metadatas") or []
+    counts = {}
+    for m in metas:
+        src = m["source"]
+        counts[src] = counts.get(src, 0) + 1
+
+    files_info = []
+    for name in sorted(counts.keys()):
+        files_info.append({"File Name": name, "Chunks": counts[name]})
+
+    st.session_state["total_documents"] = files_info
+    st.session_state["chunk_count"] = collection.count()
+    st.session_state["knowledge_base"] = len(counts) >= 4
+
+
+refresh_documents_count()
+cfg = render_sidebar(client, collection, refresh_documents_count)
+
+def show_price_chart(chart_data):
+    """Renders a Matplotlib bar chart of grounded store prices and highlights price gaps."""
+    if not chart_data or len(chart_data) == 0:
+        return
+
+    df = pd.DataFrame(chart_data)
+    if "item" not in df.columns or "store" not in df.columns or "price" not in df.columns:
+        return
+
+    df["price"] = pd.to_numeric(df["price"], errors="coerce")
+    df = df.dropna(subset=["price"])
+    if df.empty:
+        return
+
+    pivot_df = df.pivot_table(index="item", columns="store", values="price", aggfunc="min")
+
+    fig, ax = plt.subplots(figsize=(8.0, 3.8))
+    pivot_df.plot(kind="bar", ax=ax, width=0.7, edgecolor="#444444", linewidth=0.6)
+
+    ax.set_title("Grounded Flyer Price Comparison by Store ($ CAD)", fontsize=10, pad=10)
+    ax.set_xlabel("")
+    ax.set_ylabel("Price ($ CAD)", fontsize=8.5)
+    ax.tick_params(axis="both", labelsize=8)
+    ax.grid(axis="y", linestyle="--", alpha=0.4)
+    plt.xticks(rotation=20, ha="right")
+
+    for container in ax.containers:
+        ax.bar_label(container, fmt="$%.2f", padding=2, fontsize=7)
+
+    if pivot_df.shape[1] >= 2:
+        for idx, item_name in enumerate(pivot_df.index):
+            row_prices = pivot_df.loc[item_name].dropna()
+            if len(row_prices) >= 2:
+                gap = row_prices.max() - row_prices.min()
+                top_y = row_prices.max()
+                ax.annotate(
+                    f"Gap: ${gap:.2f}",
+                    xy=(idx, top_y),
+                    xytext=(0, 14),
+                    textcoords="offset points",
+                    ha="center",
+                    fontsize=7,
+                    color="#B71C1C",
+                    bbox=dict(boxstyle="round,pad=0.18", fc="#FFEBEE", ec="#EF9A9A", lw=0.6),
+                )
+
+    ax.set_ylim(0, pivot_df.max().max() * 1.25)
+    ax.legend(title="Store", fontsize=7.0, title_fontsize=7.5, frameon=False)
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
+STOP_WORDS = {"what", "where", "when", "which", "who", "how", "is", "are", "the", "a", "an", "of", "at", "in", "for", "to", "and", "or", "my", "me", "can", "do", "does", "this", "week"}
+
+def highlight_chunk(text, question):
+    """Wraps matching keywords from the user's question in yellow <mark> tags."""
+    if not question:
+        return text
+
+    words = set()
+    for w in re.findall(r"[a-zA-Z0-9]+", question.lower()):
+        if len(w) >= 3 and w not in STOP_WORDS:
+            words.add(w)
+
+    highlighted = text
+    for word in sorted(words, key=len, reverse=True):
+        pattern = re.compile(rf"\b({re.escape(word)}s?)\b", re.IGNORECASE)
+        highlighted = pattern.sub(r"<mark style='background-color: #FFF59D; padding: 0 3px; border-radius: 3px;'>\1</mark>", highlighted)
+
+    return highlighted
+
+def show_sources(sources, question=""):
+    if len(sources) == 0:
         return
     with st.expander("View Sources"):
         for idx, src in enumerate(sources, start=1):
-            page_label = f"Page {src['page']}" if src.get("page") else "Text Section"
+            page_txt = f"Page {src['page']}" if src["page"] else "Text Section"
+            dist_val = src.get("distance", round(1.0 - src["similarity"], 3))
             with st.container(border=True):
-                st.markdown(
-                    f"**Source {idx}: {src['source']}** | {page_label} | Chunk `{src['chunk_id']}`"
+                st.write(
+                    f"**{idx}. {src['source']}** | {page_txt} | Chunk `{src['chunk_id']}` | "
+                    f"Similarity: `{src['similarity']}` | Distance: `{dist_val}` ({src['label']})"
                 )
-                st.caption(f"Cosine Similarity: {src['similarity']} ({src['label']})")
-                st.write(src["text"])
+                highlighted_text = highlight_chunk(src["text"], question)
+                st.markdown(highlighted_text, unsafe_allow_html=True)
 
+# Nearby Surrey Stores Panel
+address, nearby_df = get_nearby_stores(cfg["pincode"], cfg["max_radius"])
+stores_in_radius = nearby_df["Store"].tolist() if not nearby_df.empty else []
 
-for entry in st.session_state["messages"]:
-    with st.chat_message(entry["role"]):
-        st.markdown(entry["content"])
-        if entry.get("metrics"):
-            m = entry["metrics"]
-            st.caption(f"Retrieval: {m.get('retrieval_ms', 0)} ms | Total: {m.get('total_ms', 0)} ms")
-        if entry.get("sources"):
-            display_source_drawer(entry["sources"])
+with st.expander("Nearby Surrey Stores & Local Flyer Suggestions", expanded=True):
+    st.caption(f"Location: {address} | Search restricted to flyers within {cfg['max_radius']} km")
+    if nearby_df.empty:
+        st.info("No partner stores found within this radius. Increase the Radius slider in the sidebar.")
+    else:
+        db_text = " ".join(collection.get(include=["documents"]).get("documents") or []).lower()
+        statuses = []
+        missing = []
 
+        for idx, row in nearby_df.iterrows():
+            if row["Store"].lower() in db_text:
+                statuses.append("Uploaded")
+            else:
+                statuses.append("Missing - Upload Flyer")
+                missing.append(f"{row['Store']} ({row['Branch']})")
 
-if not st.session_state["knowledge_ready"]:
-    st.info("Upload and index at least 4 grocery documents in the left sidebar to unlock the chat assistant.")
+        nearby_df["Flyer Status"] = statuses
 
-if user_prompt := st.chat_input(
-    "Ask about weekly flyer deals, product sizes, or store policies...",
-    disabled=not st.session_state["knowledge_ready"],
-):
-    st.session_state["last_question"] = user_prompt
-    st.session_state["messages"].append({"role": "user", "content": user_prompt})
+        col1, col2 = st.columns([1.5, 1.0])
+        col1.dataframe(nearby_df[["Store", "Branch", "Distance (km)", "Flyer Status"]], use_container_width=True, hide_index=True)
+        col2.map(nearby_df[["lat", "lon"]], zoom=12)
 
+        if len(missing) > 0:
+            st.warning(f"Missing flyers for: **{', '.join(missing)}**. Upload flyer as a PDF/TXT and upload it in the sidebar!")
+
+        if st.session_state["knowledge_base"] and st.button("Suggest Top Flyer Deals for My Nearby Surrey Stores",
+                                                             use_container_width=True):
+            store_list = ", ".join(stores_in_radius)
+            prompt = f"Based ONLY on the uploaded flyers within my radius ({store_list}), list the best deals. Include flyer dates and citations."
+            with st.spinner("Checking flyers within your radius..."):
+                res = retrieve_and_answer(
+                    client,
+                    collection,
+                    prompt,
+                    cfg["top_k"],
+                    cfg["threshold"],
+                    allowed_stores=stores_in_radius,
+                )
+            st.markdown(res["answer"])
+            show_price_chart(res.get("chart_data", []))
+            show_sources(res["sources"])
+
+# Chat History
+for msg in st.session_state["messages"]:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+        if "metrics" in msg:
+            st.caption(f"Retrieval: {msg['metrics']['retrieval_ms']} ms | Total: {msg['metrics']['total_ms']} ms")
+        if "sources" in msg:
+            # Save "question": user_prompt when appending the assistant message, then pass:
+            show_sources(msg["sources"], msg.get("question", ""))
+
+        st.markdown(msg["content"])
+        if "chart_data" in msg:
+            show_price_chart(msg["chart_data"])
+
+if not st.session_state["knowledge_base"]:
+    st.info("Upload and index at least 4 documents in the sidebar to start chatting.")
+
+if user_prompt := st.chat_input("Ask about weekly flyer deals or store policies...", disabled=not st.session_state["knowledge_base"]):
+    st.session_state["messages"].append({"role": "user", "content": user_prompt ,"question": user_prompt})
     with st.chat_message("user"):
         st.markdown(user_prompt)
 
     with st.chat_message("assistant"):
         try:
-            with st.spinner("Searching knowledge base and verifying citations..."):
-                outcome = retrieve_and_answer(
-                    client=client,
-                    collection=collection,
-                    question=user_prompt,
-                    top_k=top_k,
-                    threshold=threshold,
-                )
-
+            with st.spinner("Searching documents within your radius..."):
+                outcome = retrieve_and_answer(client, collection, user_prompt, cfg["top_k"], cfg["threshold"], allowed_stores=stores_in_radius)
             st.markdown(outcome["answer"])
-            m = outcome["metrics"]
-            st.caption(f"Retrieval: {m['retrieval_ms']} ms | Total: {m['total_ms']} ms")
-            display_source_drawer(outcome["sources"])
+            show_price_chart(outcome.get("chart_data", ))
+            st.caption(f"Retrieval: {outcome['metrics']['retrieval_ms']} ms | Total: {outcome['metrics']['total_ms']} ms")
+            show_sources(outcome["sources"], user_prompt)
+            st.session_state["messages"].append({
+                "role": "assistant",
+                "content": outcome["answer"],
+                "chart_data": outcome.get("chart_data", ),
+                "sources": outcome["sources"],
+                "metrics": outcome["metrics"],
+            })
+        except Exception as err:
+            st.error(f"Error: {err}")
 
-            st.session_state["messages"].append(
-                {
-                    "role": "assistant",
-                    "content": outcome["answer"],
-                    "sources": outcome["sources"],
-                    "metrics": m,
-                }
-            )
-        except Exception as exc:
-            err_msg = f"Unable to complete request: {exc}"
-            st.error(err_msg)
-            st.session_state["messages"].append({"role": "assistant", "content": err_msg})
+
+

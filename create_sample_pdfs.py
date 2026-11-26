@@ -59,19 +59,26 @@ ADDITIONAL NEXT WEEK SPECIALS
 - Oikos Greek Yogurt (750 g Tub): $5.49 each."""
     ],
     "price_match_and_raincheck_policy.pdf": [
-        """SURREY GROCERY STORES PRICE MATCH & RAINCHECK POLICY
+        """SURREY, BC GROCERY STORES PRICE MATCH & RAINCHECK POLICY
 Effective Date: November 2026
-Applies To: Participating No Frills and Real Canadian Superstore Locations in Surrey, BC
+Geographic Trade Area: Surrey, BC (Guildford, Surrey Central, Newton, Fleetwood)
 
-1. AD MATCH / PRICE MATCH GUARANTEE
-- If a major local competitor (such as Walmart Supercentre) advertises an identical brand, size, and weight grocery item at a lower price in their current weekly flyer, we will match that lower price at the checkout.
-- Customers must show the valid competitor flyer (paper or digital) for the active promotion week (e.g., November 19 to November 25, 2026).
-- Exclusions: Price matching does not apply to "While Quantities Last" items, clearance items, or percentage-off storewide coupons.
+1. STORES THAT OFFER AD MATCH / PRICE MATCH IN SURREY
+- Participating Stores: No Frills, Real Canadian Superstore, FreshCo, and Save-On-Foods.
+- Non-Participating Store: Walmart Supercentre (Guildford Town Centre) does NOT offer price matching, though Walmart's weekly flyer prices can be used to price match at No Frills, Superstore, FreshCo, or Save-On-Foods.
 
-2. RAINCHECK & PC OPTIMUM BONUS POINTS
+2. AD MATCH RULES & REQUIREMENTS
+- The competitor item must be the exact same brand, size, weight, and packaging.
+- Customers must show the valid print or digital weekly flyer (e.g., via Flipp or store app) for the active promotion week at checkout.
+- Exclusions: Price matching does NOT apply to "While Quantities Last" items, limited-quantity doorcrashers, clearance items, or percentage-off coupons.
+
+3. RAINCHECK & LOYALTY POLICY (NO FRILLS & SUPERSTORE)
 - If an advertised flyer item is out of stock during the active Promotion Period, customers may request a Raincheck at Customer Service.
-- Rainchecks are valid for 14 days from the issue date at the issuing store and give the advertised flyer price plus 10% back in PC Optimum points.
-- Rainchecks do NOT apply to items marked "While Quantities Last", gift cards, liquor, or tobacco."""
+- Rainchecks are valid for 14 days from the issue date at the issuing Surrey store and provide the advertised flyer price plus 10% back in PC Optimum points.
+- Rainchecks do NOT apply to items marked "While Quantities Last", gift cards, liquor, or tobacco.
+4. While Quantities Last
+-It is a retail flyer disclaimer meaning the sale price only applies to the physical stock currently in the store.
+"""
     ],
 }
 

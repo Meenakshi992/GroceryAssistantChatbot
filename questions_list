@@ -4,16 +4,16 @@ Tested using 4 grocery PDF documents (`no_frills_weekly_flyer.pdf`, `walmart_gui
 
 | # | Question Type | Test Question | Retrieved Right Chunks? | Accurate Answer? | Correct Citation? | Rejected Irrelevant Question? | Result / Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | Direct | How much is a 10 kg bag of Rogers Granulated White Sugar at No Frills this week? | Yes | Yes ($13.99 each, limit 2 per customer) | Yes `[Source: no_frills_weekly_flyer.pdf, p. 1]` | N/A | Strongly Relevant match. |
-| **2** | Direct | What is the price of Tilda Pure Basmati Rice (4.5 kg) at Walmart Guildford? | Yes | Yes ($12.97 Special Import Price) | Yes `[Source: walmart_guildford_flyer.pdf, p. 1]` | N/A | Found exact product size and price. |
-| **3** | Direct | When do next week's Real Canadian Superstore flyer prices start and end? | Yes | Yes (Thursday, November 26 to Wednesday, December 2, 2026) | Yes `[Source: superstore_next_week_flyer.pdf, p. 1]` | N/A | Found exact next-week preview dates. |
-| **4** | Paraphrased | How long do I have to use a raincheck before it expires, and where can I use it? | Yes | Yes (Within 14 days of issue date at the exact issuing store location) | Yes `[Source: price_match_and_raincheck_policy.pdf, p. 1]` | N/A | Matched "before it expires" to "valid for 14 days". |
-| **5** | Paraphrased | What do I need to show at the register to get a competitor's lower advertised price? | Yes | Yes (The valid paper or digital competitor flyer for the active promotion week, for an identical brand, size, and weight item) | Yes `[Source: price_match_and_raincheck_policy.pdf, p. 1]` | N/A | Matched "at the register" to checkout ad-match rules. |
-| **6** | Misspelled | How much is whole wheet bred and chedar chese at Superstor next week? | Yes | Yes (Dempster's Whole Wheat Bread 675g is $3.29, Cracker Barrel Cheddar Cheese 400g is $5.49) | Yes `[Source: superstore_next_week_flyer.pdf, p. 1]` | N/A | Embeddings handled multiple typos above 0.35 threshold. |
-| **7** | Multi-Document | Compare the price of Lean Ground Beef and Fresh Cavendish Bananas across No Frills, Walmart, and Superstore. | Yes | Yes (Ground Beef: No Frills $13.99/kg, Walmart $14.48/kg, Superstore $14.99/kg; Bananas: No Frills $1.48/kg, Walmart $1.50/kg, Superstore $1.65/kg) | Yes (Cites all three flyer PDFs, p. 1) | N/A | Synthesized prices across all three stores accurately. |
-| **8** | Multi-Document | If No Frills has Dempster's Whole Wheat Bread (675g) for $2.97 this week and Superstore has it for $3.29, can Superstore price match it? | Yes | Yes (Yes, Superstore matches identical brand, size, and weight items from a major local competitor's valid current weekly flyer) | Yes `[Source: no_frills_weekly_flyer.pdf, p. 1]`, `[Source: superstore_next_week_flyer.pdf, p. 1]`, & `[Source: price_match_and_raincheck_policy.pdf, p. 1]` | N/A | Combined product details across flyers with ad-match policy rules. |
-| **9** | Irrelevant | What are the best tourist attractions to visit in Paris, France? | No (0 passed) | Yes (Returned safe fallback message) | N/A (Refused) | **Yes** | Score fell below 0.35; refused to invent an answer. |
-| **10** | Irrelevant | How do I bake a chocolate lava cake from scratch at 400 degrees? | No (0 passed) | Yes (Returned safe fallback message) | N/A (Refused) | **Yes** | Score fell below 0.35; refused to invent an answer. |
+1 Direct | what is the price of apples, banana, bread, chicken and milk in all nearby stores
+2 Direct | What is the price of Tilda Pure Basmati Rice (4.5 kg) at Walmart Guildford?
+3 Direct | When do next week's Real Canadian Superstore flyer prices start and end?
+4 Paraphrased | How long do I have to use a raincheck before it expires, and where can I use it?
+5 Paraphrased | What do I need to show at the register to get a competitor's lower advertised price?
+6 Misspelled | How much is whole wheet bred and chedar chese at Superstor next week?
+7 Multi-Document | Compare the price of Lean Ground Beef and Fresh Cavendish Bananas across No Frills, Walmart, and Superstore.
+8 Multi-Document | If No Frills has Dempster's Whole Wheat Bread (675g) for $2.97 this week and Superstore has it for $3.29, can Superstore price match it?
+9 Irrelevant | What are the best tourist attractions to visit in Paris, France?
+10 Irrelevant | How do I bake a chocolate lava cake from scratch at 400 degrees?
 
 check cache=>
 what is the price of eggs in all nearby store

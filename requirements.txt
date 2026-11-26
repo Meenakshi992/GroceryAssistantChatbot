@@ -2,5 +2,6 @@ streamlit
 openai
 chromadb
 pypdf
-python-docx
 pandas
+geopy
+matplotlib

@@ -1,9 +1,14 @@
 .streamlit/secrets.toml
 
 # Local Persistent Vector Database
-chroma_rag_db/
-*.sqlite3
+chroma_rag_db_GAC/
+*chroma.sqlite3
 
 # Python Virtual Environments & Cache
 .venv/
 __pycache__/
+
+README.md
+*.pdf
+Project_Structure
+
