@@ -5,5 +5,7 @@ Question 2 "How long do I have to use a raincheck before it expires, and can Wal
 Question 3 "What are the SkyTrain Expo Line operating hours from Surrey Central to Waterfront?"
 Question 4 "Compare the price of Fresh Cavendish Bananas across my nearby stores."
 Question 5 "Compare the price of Large White Eggs across all nearby stores"
+Question 6 Multi-Store Comparison | "Compare the prices of Dairyland 2% Milk, Large White Eggs, Chicken Breasts, and Bananas across my nearby stores with Gaps."
 check cache=> ASK 4 times
-Tell me which store has the cheapest of eggs among above stores
+Question 7 Tell me which store has the cheapest of eggs among above stores
+Question 8 Can I price match Safeway's Scene+ member price or Save-On-Foods' More Rewards price at Superstore?
