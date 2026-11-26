@@ -1,3 +1,5 @@
 .streamlit/secrets.toml
-chroma_rag_db/
+chroma_rag_db_GAC/
 __pycache__/
+.idea/
+.DS_Store
